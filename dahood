@@ -65,6 +65,12 @@ getgenv().KafexLua = getgenv().KafexLua or {
     TargetStrafe = false, TargetStrafeSpeed = 10, TargetStrafeDist = 8, TargetStrafeHeight = 1,
     AirStuck = false, AirStuckKey = {Type = "Key", Value = "Z"},
     Desync = false, DesyncAmount = 5,
+    SoundsEnabled = true, SoundVolume = 1,
+    SoundKill = "custom_hit",
+    SoundHeadshot = "custom_hit",
+    SoundToggle = "rbxassetid://12222059",
+    SoundError = "rbxassetid://12221984",
+    CustomHitSound = true,
     ESPEnabled = true, ESPBoxes = true, ESPNames = true, ESPHealth = true, ESPTracers = true,
     ESPDistance = true, ESPSkeleton = false, ESPChams = false, ESPTrails = false, ESPColorHex = "#FF2828",
     ESPBoxStyle = "Corner", ESPThickness = 1.5, ESPNameSize = 13, ESPShowTeam = false,
@@ -106,6 +112,55 @@ local radarDots = {}
 local function getAccent() return Color3.fromHex(CFG.GUIAccentHex) end
 local function setAccent(c) CFG.GUIAccentHex = Color3.toHex(c) end
 local function getESPColor() return Color3.fromHex(CFG.ESPColorHex) end
+
+local CUSTOM_HIT_B64 = "SUQzBAAAAAAAYlRDT04AAAAHAAADT3RoZXIAVFhYWAAAACQAAANjb21tZW50AG9ubGluZS1hdWRpby1jb252ZXJ0ZXIuY29tAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAALAAASxQAhISEhISEhISE3Nzc3Nzc3NzdNTU1NTU1NTU1kZGRkZGRkZGR6enp6enp6enqQkJCQkJCQkJCmpqampqampqa9vb29vb29vb3T09PT09PT09Pp6enp6enp6en///////////8AAAAATGF2YzU3LjEwAAAAAAAAAAAAAAAAJAaRAAAAAAAAEsWurjK3AAAAAAAAAAAAAAAAAAAAAP/7kEQAAAJzALIFAGACUGAW5aAMAEthNwEYEQABcbKgAwIwAP/M/z+CMADw94efgIiAHQ9oPPgCIgjMPwD3gDgwRm/AP93hn////j//4DgAzo/MP8AZAHZnwx/ADoA6P4Gf/5gH/6P/8//8A//jnh5+AAwBAMz4HgBmY+GPwAGQDw//8R/h5/BEQA6HtB7wAzB0//8nj8w/wBkAdHPhn4O/8//wD8/D34GRBHR/j+CP/z/+AZ0fDH8AGQDw9+b4H//+IAAwAAAAAEVEitPjkG24QJeVoie1tWd3I92sZlVXsrPem8ZGR7Wq9GvIrzOrUad5M9u9rGkJvSSr0avIp1bSOrbDg9U5qr0FCckkrFCgwDgQ4FQYc//8oTb/+IUSamZmiMkov3DllmQJTPOotrxV/paIimPe8My96nPcOvv6fm8qDZotc36flZj+hblpSPqd6fCMj3BWHC6bTQkPhY7fCMvf05U3PQjf2Rf4mPyngsTrf/+TNf/kDaoIkKsAoKoGYKYaCsRiMNizNT4ALEEU/GYHMBCTADEeGPAFFMmSHP/7kmQTAAPZYNt+UmAGT0kLn8i0AI+wm139l4ABChAsf54gAB74HKXQJyLPGfIp5MGRECuOMdIavP/QWbl+blMyImc/ZBaZugiapqL5v/oXfks45hCoN/9091MOYgggnQZP/7eyHshWmmSyf//7p73/0EiUGYkzkn0FSFQFUFOEuFMPBYKBgOBhlUi4FeG9bjjHMDl92ABICr0x8Ioc/koMBGHBUDCeaGjJHi8OQ9/ToIUEjT+hZq0VLPJ/7///97v/////Pf/9EzdU99QJs4AAQbKLcFL25um3NSUvkD/xulm0lF4gQsDtm7KQh4hj3/7ZlPCc2QupfVwIsIwh3IK4F7+3BPQ9yQnUqkJPaLCXC1F0iknG2qKsufJPrMXGIQWU46IDoUJM+NaWotce2iR05JSssxJUYse0VHMeGh7jqgmuqU4td5ufvM7StkggKwMYW9YYDiMKVCeGoJ+LGbpOATRuBJWxjuOQeDAAa14oHU5jiP1Q0rIuZBip5aFVSYq36P/s2F6ClRe3x3JSAAAAa23YRPGpomK6gGs8yVD/OH7/+5JkDIETvVxU8wZDoD+oOr5gYlYQCRlJzDENyQIN6bjwjhDEnt+3FRmWgZKitRliRgrQHJOVY2+xSWt1SAy6hLHPUCKyRekCNUVFs+jLbLTM1sjOr1Lwk8RxfFdP9a1KiK61z0EwiK8S8rC0kVPEbNs18QzN/K7T7bdtbcHUm4sRRCzMMxIYgAACyjgFcWnCWZLZi46tWFA0BrMoDZlS2d3371RM/9W/vu+VbWvK1aGWn0//0t+t2lWvlDLaKt7uqgWeEVxMAEBBAWrWUQGbkv9ujcHbeF4XOgZrDOpoEwnnbi7Og2KWl8UDza4VxrT5ecwrFy+exl0oRg3bfWrKvxLCi21DCQkzhiQ4tC3R1xJ7xEW6HgdaDoirmIfW2uHdOR931/dGXFMpIrDLNyT5QM5Wuf1h9EuL3W77oMI6Z73/wEi0WRcABDk6HU1iqJMXcWmrlK3Gs7x5M9mXTe67PNdEW/rjgwMAHHAAECizXm1LR2KFQMLMEYZAozp+d9+JvUsG5/AgPSOYUbVpgVWF/Vz0tLHmcTMZbSfaHnF2txtq//uSZA+CBBVI0CMPQ3JBIrp+MMJID+0hTcelD8DuBup4wwDorivY/w0b0uD7WbNLRpfWWjX66XsaQRfwbS1rKHbXC4WrIbiqG0FgkppeQkh3gNwyOEqhZQmaHZwolBMAoFpgJQ1QZrUNw16IvF212vMszaszXTJMBjllv5VsnxY7cMd+hl/fSLTjwyKoCAAHDyhnYNCSB4cbIILLO/WqcY8qN3/S0AGgI2FyBAGJ2sCtApYJHwIHQyJwGEgVHguDQIP//6unuI+sEaHdyUgBFFDoek3SaDOlBNyWOg0DpiHZ51KyKUEMho7GVrUO2qOwgvNiygLwdY/geEsBuLG4st0cEkCBFNA9s0yla1vNMyUVJh01SSIdDgqUSQ9rWsWtsrUzRddi3+NGDxUWFxQXGC4/HCwzxuLLWR/dy50CsBMCngEMMpYGTIo+REI7AAAB7gu1kuBWglCFhUOV+7OYWomo/7aK3ihsy+Xzj0hAVucWadBAsr/Q/s//b/+HrhYmCzXwsjxAApUcMl2p+OXolLZbN1Zpy3wRjxi6OBbR9cYGRf/7kmQPAxRjT08rDEryOKGaTi2DFg/5UzaMsHHA3YVnEPAJSCkxQkNEHgdGaHFEcC5DRIjEPQpAiUzoPURiH5UzgWAqIPAoegYP2VAi8RUasrRz2Wbw4bBlmNuOGygdpdDF2yTbwwnSaHPFFBPf0MG43iq6hact97UGZXm9Xy89a2shuq0mOzKfNCpUvvfu8rN+IAl07ihhAAAQJC3pEA4HRmBU6fRj+RgwHqJq0MLmGiKwh1UyweWARQkxaZVyJlZ0U+dv//Tf//3JAbEIAA1ia2wKfS4uoImGvlJKGahi9fiN+mpr8tlWa39/ZiBraIeRqDX5X4P4neJy5rCHJAh5fCCZRjgGcivwJNV5+FyR/l2Mo1gxtz2fglfSGDMq5CPZFI3RBofXSNSBsZvBCXTArcaPWi11clsU0WqSqPlbekhmpHwqPver76wJzQAAuwerY5tbpPisxKpYWC1QYFAg+GrxMWTDVpVAZaeTFVY+wseFHS17yMlgl9ff7LP/cWpJ1QClGQQTmI0olP7C2qspgekgN/3EdX4zRRp8ZB/3mB//+5JkD4N0QU5Noy9EcDWB+eQ8AlIObOs9x6y4yNyappSwCVK98siYkj9ElUtImKwMLykLddouPp/GnlRk757PM9kXGcu8xLyv1Yyyv4W8b3P31tP/2/GtSyzQRzah5GF6DR1eKbhrk4SDfyrNq1KHk06I6S7MzwhMwIyb3bnjVGqIg0mYJi5Q0w/spxEJnKAwl9uDrQwyvLEeTXWAHb/BwOoBBoQIW5voE4wTw9NEHQ5LknwEZY48nDShf5UXKU/YoOgJwjoIiIUxVm4SUZ5pGiQ1DjtO481bzgfTnYqZJfmW8n8rybLe2IcdA/1vdbO1w0cwZTmSx5nD295Dl8Fb3ymbp0gmXuqnx+YQ1zGVvs/QtZuplL6Is9wYzcZPqERnp8cqhwWBBj2Khoced41v3//f/U37MVCy5xXeq2On/4GB8DGBjD/0/+BQMYAGAAAFBAsfH4KBgoMfHARgEAgQ/xv6kUrBYvEQu1YxdKoCRnlRMhAAARo6dajb6tMdaI0jMH3jbMXdd12jigNEx4RoFmJqpIXvR+9BMIxQcbFrxKdB//uSZBoAA3M6T3MJQ0IwxNm8MCdODrS3RceZMMjgGKg08AoKaeUvmeJVdlAChVVpcK1PF/9z3fUd4Sf9pKV2ny3dEwbT7u5bx/L27kkRbZ36aa1/v/FxosnHMiWs4cFL3wwAwAAlBSOpOXCSwHag+EEd5bv+VFndBHp//62NXm70D2XgYyRiZT3os6/+//UBLD1QsRiigRoCoKRHHeX0ux5ifD7U5cnycUsz9Jrb+c0ZBlSWDAoOFoQmOuq73/Kh4UdgnGIrRZ2qvZ7GOxBMaHLVJ05ZHwnKaqIy/G87nSDavgByPhkGmCoDiXcitO59W3afdHt3/6y5GmB6n+keSVHq/h5Fpp2KAAcAgABrAIa8Xo4HCNCTu1+RDHDeILw/GtMP43qyNd7WdlSZP29yflf4MCGgI/ghuB8SfFYCNjhRIgAAAQtB5GucJN0OPg7DgiHUX0/Cbe1GCXOE+PlDmkMSFWQJQqs19hYJgsFVDUXVRcVfLO0pM2oAENWz/X13thM1vHlxkeIbGTMXFuaKweAeow46UrQmiPTe0e4JLGIaRP/7kmQygyNQOs9x6BxgOkRZvjAmbgy5BTUMJGtA2xhmJJCVOD2B0bXIAwkWggEAAABCDIAibqg1CGYSutZWR43O8cu0ucS4fyyX2zNQKhdE8owE5o7PMW6zt1+u9UghKlf/+kL+FCR6LKejwuW8j5NMiUqa64AmaEmvA0fQkTiJNCi/lKgdxlhehoDqoZ3wG0Gq1eicKjOJa0m05cUJNpGMjRslJIHJiPnci7DQvgFkVjMVKSDmrc7Ep4RaB1yVEondPgM5UXLPkweAAMAZDYoFHPihVG8YZ1RdrpBHuZ6Xr0RFLb9DFa6PKxnXUFQFhVzGhJWRMJP/7vvsyNLv/6Ig1SgoDATQFqDlPi011GBOU5L83L9xcyKYVbJUOIkT0PjGOdCcAEAJCkiRdD+dwoBuHQ6MdS/0lKpULSW9v8PYwPQFhT3uBp8GrhEe4iKypFbqBUqoGp7YJb16xh7LE1ttJBBJIGTAAKFgaiMVjoyRCShl7D8YU2sFBlXrUSGkFzsOUFgKFHusvliqhcaCoKnkOULsizJ5HvHgFfVELv//oyr/+5JkUQAC8THJowkrUEPCuSQwwygJqL8XowhnwPkYYqRgjLgAIAKhUSBJJZPBQVJyS1v0QSCAjXuWXgQYeDU1VAx3BdwIMBAWdX5zZj9V/4zf/BRq5cbgYlUsadFA7DQC6j1Ot3RRn5LutsisWiJ2pIAgEsiAzCLNxZOR2fJa0pE+zZKvVKs1J1VWPP7txiRvY7mefl+39X/6DAQEBOH89q9NX+7ftQpOu/DVFTexdQlAEABEJqTkFTU0omIUZE955kIR8rCrl9a01SboGd6G14vMtDfFPiivYxP6bn91/3MUe7ndf/1xNHArhnv5/9GqNC+/lq9sb5TdNvcwrgAIgXayCgICAuPA0WEp0g4rFVVZIRgGxBQOiriKNbR90WYsq1yrxLoO2LhrF7bGyKVPSm/zLNbqkMRSGuHa1qNbEhCHkuHNuqpbcVVVV9eqXqXD4zHxV9vjKX8/Uo3szKS/xmVVVS/mv/+3xmPq/t/+3Dv8ZmZmVfZuARvzfZ+/5x/Dvm67oVw44GCgoKG+SCnyDgAAOhqsa5bjoieDUGXCVwll//uSRHkDAnMmQMAhEvJBgFg4GEIACgky8AAEYUkzAB2UII14iXeIlBoNCUyC0O6nkVPEqwViJ4iiG7iVYaaIoNQVu1zolJB1QNLBVwlFX/DsGoKwVUHcKkpaHFhoqCpMQU1FMy4xMDCqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkxBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqv/7kmRAj/AAAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo="
+
+local function ensureHitSound()
+    if isfile and isfile("skeethitsound.mp3") then return true end
+    if writefile then
+        pcall(function()
+            local data = crypt and crypt.base64decode and crypt.base64decode(CUSTOM_HIT_B64) or nil
+            if not data then
+                -- fallback pure lua base64 decode
+                local b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+                data = CUSTOM_HIT_B64:gsub("[^"..b.."=]", "")
+                local t = {}
+                for i = 1, #data, 4 do
+                    local n = (b:find(data:sub(i,i)) - 1) * 262144
+                        + ((b:find(data:sub(i+1,i+1)) or 1) - 1) * 4096
+                        + ((b:find(data:sub(i+2,i+2)) or 1) - 1) * 64
+                        + ((b:find(data:sub(i+3,i+3)) or 1) - 1)
+                    t[#t+1] = string.char(math.floor(n/65536)%256, math.floor(n/256)%256, n%256)
+                end
+                data = table.concat(t)
+            end
+            writefile("skeethitsound.mp3", data)
+        end)
+        return isfile and isfile("skeethitsound.mp3")
+    end
+    return false
+end
+
+local function playSound(id, vol)
+    if not CFG.SoundsEnabled then return end
+    pcall(function()
+        local s = Instance.new("Sound")
+        if id == "custom_hit" or id == CFG.SoundKill or id == CFG.SoundHeadshot then
+            if ensureHitSound() and getcustomasset then
+                s.SoundId = getcustomasset("skeethitsound.mp3")
+            else
+                s.SoundId = "rbxassetid://138097048" -- fallback
+            end
+        else
+            s.SoundId = id
+        end
+        s.Volume = (vol or CFG.SoundVolume or 1)
+        s.PlayOnRemove = true
+        s.Parent = Camera
+        s:Destroy()
+    end)
+end
+
 local function setESPColor(c) CFG.ESPColorHex = Color3.toHex(c) end
 
 local notifContainer
@@ -149,6 +204,7 @@ local function notify(title, text, duration)
     s.Parent = frame
     
     table.insert(notifications, frame)
+    playSound(CFG.SoundToggle, 0.6)
     if CFG.GUIAnimations then
         TweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Back), {
             Position = UDim2.new(1, -290, 0, (#notifications - 1) * 60 + 10),
@@ -1120,6 +1176,12 @@ toggle(misc, "chat spammer", CFG.ChatSpam, function(v) CFG.ChatSpam = v end)
 
 -- SETTINGS TAB
 local settings = tabFrames["settings"]
+section(settings, "sounds")
+toggle(settings, "sounds enabled", CFG.SoundsEnabled, function(v) CFG.SoundsEnabled = v end)
+slider(settings, "sound volume", 0, 2, CFG.SoundVolume, function(v) CFG.SoundVolume = v end)
+button(settings, "test kill sound", function() playSound(CFG.SoundKill) end)
+button(settings, "test toggle sound", function() playSound(CFG.SoundToggle) end)
+
 section(settings, "gui appearance")
 dropdown(settings, "theme", {"dark", "midnight", "amoled"}, CFG.GUITheme, function(v)
     CFG.GUITheme = v
@@ -1317,6 +1379,7 @@ UserInputService.InputBegan:Connect(function(input, gpe)
                 stickyTarget = t
                 locked = true
                 notify("Sticky", "Locked: " .. t.Name, 1.5)
+                playSound(CFG.SoundToggle)
             end
         end
     end
@@ -2129,7 +2192,164 @@ task.spawn(function()
 end)
 
 -- APPLY GUI SETTINGS
-function applyGUISettings()
+function 
+-- DESYNC / VELOCITY BREAK (from provided source, integrated)
+local lastSafeCF = nil
+local desyncDetected = {}
+
+local function applyDesyncFix(char)
+    if not char then return end
+    for _, v in ipairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = false
+            pcall(function()
+                v.AssemblyAngularVelocity = Vector3.zero
+                v.AssemblyLinearVelocity = Vector3.zero
+                v.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0)
+            end)
+        end
+    end
+    local root = getRoot(char)
+    if root then
+        root.CanCollide = false
+        pcall(function()
+            root.AssemblyAngularVelocity = Vector3.zero
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0)
+        end)
+    end
+end
+
+-- Other players desync breaker (makes their desync less effective / freezes weird velocity)
+Players.PlayerAdded:Connect(function(plr)
+    if plr == LocalPlayer then return end
+    local function onChar(char)
+        task.spawn(function()
+            local root = char:WaitForChild("HumanoidRootPart", 5)
+            if not root then return end
+            desyncDetected[plr] = false
+            RunService.Heartbeat:Connect(function()
+                if not char.Parent or not root.Parent then return end
+                local ang = 0
+                local lin = 0
+                pcall(function()
+                    ang = root.AssemblyAngularVelocity.Magnitude
+                    lin = root.AssemblyLinearVelocity.Magnitude
+                end)
+                if ang > 50 or lin > 100 then
+                    if not desyncDetected[plr] then
+                        desyncDetected[plr] = true
+                    end
+                    applyDesyncFix(char)
+                end
+            end)
+        end)
+    end
+    if plr.Character then onChar(plr.Character) end
+    plr.CharacterAdded:Connect(onChar)
+end)
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= LocalPlayer then
+        if plr.Character then
+            task.spawn(function()
+                local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    RunService.Heartbeat:Connect(function()
+                        if not plr.Character or not root.Parent then return end
+                        local ang, lin = 0, 0
+                        pcall(function()
+                            ang = root.AssemblyAngularVelocity.Magnitude
+                            lin = root.AssemblyLinearVelocity.Magnitude
+                        end)
+                        if ang > 50 or lin > 100 then
+                            applyDesyncFix(plr.Character)
+                        end
+                    end)
+                end
+            end)
+        end
+        plr.CharacterAdded:Connect(function(char)
+            task.spawn(function()
+                local root = char:WaitForChild("HumanoidRootPart", 5)
+                if not root then return end
+                RunService.Heartbeat:Connect(function()
+                    if not char.Parent or not root.Parent then return end
+                    local ang, lin = 0, 0
+                    pcall(function()
+                        ang = root.AssemblyAngularVelocity.Magnitude
+                        lin = root.AssemblyLinearVelocity.Magnitude
+                    end)
+                    if ang > 50 or lin > 100 then
+                        applyDesyncFix(char)
+                    end
+                end)
+            end)
+        end)
+    end
+end
+
+-- Local desync (our own) + anti-rubberband
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        local root = getRoot(LocalPlayer.Character)
+        if not root then return end
+        local lin = root.AssemblyLinearVelocity.Magnitude
+        local ang = root.AssemblyAngularVelocity.Magnitude
+        if lin > 250 or ang > 250 then
+            root.AssemblyAngularVelocity = Vector3.zero
+            root.AssemblyLinearVelocity = Vector3.zero
+            if lastSafeCF then
+                root.CFrame = lastSafeCF
+            end
+        elseif lin < 50 and ang < 50 then
+            lastSafeCF = root.CFrame
+        end
+        -- Active desync when enabled
+        if CFG.Desync and not voidHidden and not airStuck then
+            local d = CFG.DesyncAmount or 5
+            -- network desync style: micro teleport + velocity poke
+            root.CFrame = root.CFrame * CFrame.new(
+                (math.random()-0.5) * d * 0.15,
+                0,
+                (math.random()-0.5) * d * 0.15
+            )
+            pcall(function()
+                root.AssemblyLinearVelocity = root.AssemblyLinearVelocity + Vector3.new(
+                    (math.random()-0.5) * d * 3,
+                    0,
+                    (math.random()-0.5) * d * 3
+                )
+            end)
+        end
+    end)
+end)
+
+
+-- Kill / Headshot sounds
+local function watchKills(plr)
+    if plr == LocalPlayer then return end
+    local function onChar(char)
+        local hum = char:WaitForChild("Humanoid", 5)
+        if not hum then return end
+        hum.Died:Connect(function()
+            if stickyTarget == plr or (target and target == plr) then
+                playSound(CFG.SoundKill)
+            elseif CFG.AutoKill then
+                local root = getRoot(LocalPlayer.Character)
+                local er = getRoot(char)
+                if root and er and (root.Position - er.Position).Magnitude < (CFG.AutoKillRange or 50) + 20 then
+                    playSound(CFG.SoundKill)
+                end
+            end
+        end)
+    end
+    if plr.Character then task.spawn(onChar, plr.Character) end
+    plr.CharacterAdded:Connect(function(c) task.spawn(onChar, c) end)
+end
+for _, p in ipairs(Players:GetPlayers()) do watchKills(p) end
+Players.PlayerAdded:Connect(watchKills)
+
+applyGUISettings()
     local accent = getAccent()
     topGradient.BackgroundColor3 = accent
     VersionLbl.TextColor3 = accent
@@ -2159,6 +2379,164 @@ if CFG.AntiAFK then
     end)
 end
 
+
+-- DESYNC / VELOCITY BREAK (from provided source, integrated)
+local lastSafeCF = nil
+local desyncDetected = {}
+
+local function applyDesyncFix(char)
+    if not char then return end
+    for _, v in ipairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = false
+            pcall(function()
+                v.AssemblyAngularVelocity = Vector3.zero
+                v.AssemblyLinearVelocity = Vector3.zero
+                v.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0)
+            end)
+        end
+    end
+    local root = getRoot(char)
+    if root then
+        root.CanCollide = false
+        pcall(function()
+            root.AssemblyAngularVelocity = Vector3.zero
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0)
+        end)
+    end
+end
+
+-- Other players desync breaker (makes their desync less effective / freezes weird velocity)
+Players.PlayerAdded:Connect(function(plr)
+    if plr == LocalPlayer then return end
+    local function onChar(char)
+        task.spawn(function()
+            local root = char:WaitForChild("HumanoidRootPart", 5)
+            if not root then return end
+            desyncDetected[plr] = false
+            RunService.Heartbeat:Connect(function()
+                if not char.Parent or not root.Parent then return end
+                local ang = 0
+                local lin = 0
+                pcall(function()
+                    ang = root.AssemblyAngularVelocity.Magnitude
+                    lin = root.AssemblyLinearVelocity.Magnitude
+                end)
+                if ang > 50 or lin > 100 then
+                    if not desyncDetected[plr] then
+                        desyncDetected[plr] = true
+                    end
+                    applyDesyncFix(char)
+                end
+            end)
+        end)
+    end
+    if plr.Character then onChar(plr.Character) end
+    plr.CharacterAdded:Connect(onChar)
+end)
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= LocalPlayer then
+        if plr.Character then
+            task.spawn(function()
+                local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    RunService.Heartbeat:Connect(function()
+                        if not plr.Character or not root.Parent then return end
+                        local ang, lin = 0, 0
+                        pcall(function()
+                            ang = root.AssemblyAngularVelocity.Magnitude
+                            lin = root.AssemblyLinearVelocity.Magnitude
+                        end)
+                        if ang > 50 or lin > 100 then
+                            applyDesyncFix(plr.Character)
+                        end
+                    end)
+                end
+            end)
+        end
+        plr.CharacterAdded:Connect(function(char)
+            task.spawn(function()
+                local root = char:WaitForChild("HumanoidRootPart", 5)
+                if not root then return end
+                RunService.Heartbeat:Connect(function()
+                    if not char.Parent or not root.Parent then return end
+                    local ang, lin = 0, 0
+                    pcall(function()
+                        ang = root.AssemblyAngularVelocity.Magnitude
+                        lin = root.AssemblyLinearVelocity.Magnitude
+                    end)
+                    if ang > 50 or lin > 100 then
+                        applyDesyncFix(char)
+                    end
+                end)
+            end)
+        end)
+    end
+end
+
+-- Local desync (our own) + anti-rubberband
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        local root = getRoot(LocalPlayer.Character)
+        if not root then return end
+        local lin = root.AssemblyLinearVelocity.Magnitude
+        local ang = root.AssemblyAngularVelocity.Magnitude
+        if lin > 250 or ang > 250 then
+            root.AssemblyAngularVelocity = Vector3.zero
+            root.AssemblyLinearVelocity = Vector3.zero
+            if lastSafeCF then
+                root.CFrame = lastSafeCF
+            end
+        elseif lin < 50 and ang < 50 then
+            lastSafeCF = root.CFrame
+        end
+        -- Active desync when enabled
+        if CFG.Desync and not voidHidden and not airStuck then
+            local d = CFG.DesyncAmount or 5
+            -- network desync style: micro teleport + velocity poke
+            root.CFrame = root.CFrame * CFrame.new(
+                (math.random()-0.5) * d * 0.15,
+                0,
+                (math.random()-0.5) * d * 0.15
+            )
+            pcall(function()
+                root.AssemblyLinearVelocity = root.AssemblyLinearVelocity + Vector3.new(
+                    (math.random()-0.5) * d * 3,
+                    0,
+                    (math.random()-0.5) * d * 3
+                )
+            end)
+        end
+    end)
+end)
+
+
+-- Kill / Headshot sounds
+local function watchKills(plr)
+    if plr == LocalPlayer then return end
+    local function onChar(char)
+        local hum = char:WaitForChild("Humanoid", 5)
+        if not hum then return end
+        hum.Died:Connect(function()
+            if stickyTarget == plr or (target and target == plr) then
+                playSound(CFG.SoundKill)
+            elseif CFG.AutoKill then
+                local root = getRoot(LocalPlayer.Character)
+                local er = getRoot(char)
+                if root and er and (root.Position - er.Position).Magnitude < (CFG.AutoKillRange or 50) + 20 then
+                    playSound(CFG.SoundKill)
+                end
+            end
+        end)
+    end
+    if plr.Character then task.spawn(onChar, plr.Character) end
+    plr.CharacterAdded:Connect(function(c) task.spawn(onChar, c) end)
+end
+for _, p in ipairs(Players:GetPlayers()) do watchKills(p) end
+Players.PlayerAdded:Connect(watchKills)
+
 applyGUISettings()
+pcall(ensureHitSound)
 notify("Loaded", "KAFEX LUA ready • " .. executor, 3)
 print("[KAFEX LUA] loaded — made by kafex • executor: " .. executor)
