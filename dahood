@@ -57,13 +57,19 @@ getgenv().KafexLua = getgenv().KafexLua or {
     SilentAimMode = "hold", SilentPart = "Head", UseAimbotTarget = false, EnablePrediction = true, SilentAlways = false, ClosestPart = true,
     Triggerbot = false, TriggerDelay = 0.015, Killaura = false, KillauraRange = 15, AutoParry = false, AutoParryDelay = 0.05,
     OrbitEnabled = false, OrbitKey = {Type = "Key", Value = "X"}, OrbitSpeed = 8, OrbitDistance = 6, OrbitHeight = 1,
-    AntiAim = false, AntiAimMode = "Jitter", AntiAimSpeed = 20,
+    AntiAim = false, AntiAimMode = "Jitter", AntiAimSpeed = 20, AntiAimYaw = 180,
+    Resolver = false, ResolverMode = "Auto",
     VoidHide = false, VoidHideKey = {Type = "Key", Value = "V"},
-    AutoKill = false, AutoKillRange = 25,
+    AutoKill = false, AutoKillRange = 25, AutoKillMode = "Shoot",
     PlayerTP = false, PlayerTPKey = {Type = "Key", Value = "C"},
+    TargetStrafe = false, TargetStrafeSpeed = 10, TargetStrafeDist = 8, TargetStrafeHeight = 1,
+    AirStuck = false, AirStuckKey = {Type = "Key", Value = "Z"},
+    Desync = false, DesyncAmount = 5,
     ESPEnabled = true, ESPBoxes = true, ESPNames = true, ESPHealth = true, ESPTracers = true,
     ESPDistance = true, ESPSkeleton = false, ESPChams = false, ESPTrails = false, ESPColorHex = "#FF2828",
+    ESPBoxStyle = "Corner", ESPThickness = 1.5, ESPNameSize = 13, ESPShowTeam = false,
     Crosshair = false, CrosshairSize = 8, CrosshairColor = "#FFFFFF", Radar = false, RadarSize = 150,
+    Wallbang = false, WallbangKey = {Type = "Key", Value = "B"},
     Fullbright = false, NoFog = false, SpeedEnabled = false, WalkSpeed = 55, JumpPower = 80,
     FlyEnabled = false, FlySpeed = 70, Noclip = false, InfiniteJump = false, Freecam = false,
     FreecamSpeed = 1, TeleportToMouse = false, TeleportKey = {Type = "Key", Value = "T"},
@@ -85,6 +91,8 @@ local orbitAngle = 0
 local voidHidden = false
 local aaAngle = 0
 local originalRootCF = nil
+local airStuck = false
+local strafeAngle = 0
 local bodyVel, bodyGyro, linVel, alignOri
 local guiOpen = true
 local notifications = {}
@@ -204,6 +212,7 @@ local function getPart(char, name)
 end
 
 local function wallCheck(from, to)
+    if CFG.Wallbang then return true end -- wallbang = ignore walls
     if not CFG.WallCheck then return true end
     local ray = Ray.new(from, (to - from).Unit * (to - from).Magnitude)
     local hit = Workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character, Camera})
@@ -247,6 +256,18 @@ local function getPredictedPos(plr, partName, predAmount)
     if root and predAmount and predAmount > 0 then
         local vel = root.Velocity
         pos = pos + Vector3.new(vel.X * predAmount, vel.Y * predAmount, vel.Z * predAmount)
+    end
+    -- Resolver adjustment
+    if CFG.Resolver and root then
+        if CFG.ResolverMode == "High" then pos = pos + Vector3.new(0, 1.5, 0)
+        elseif CFG.ResolverMode == "Low" then pos = pos + Vector3.new(0, -1, 0)
+        elseif CFG.ResolverMode == "Center" then pos = root.Position
+        elseif CFG.ResolverMode == "Auto" then
+            local vel = root.Velocity
+            if vel.Magnitude > 5 then
+                pos = pos + Vector3.new(vel.X * 0.05, 0.5, vel.Z * 0.05)
+            end
+        end
     end
     return pos
 end
@@ -945,11 +966,16 @@ local visuals = tabFrames["visuals"]
 section(visuals, "esp")
 toggle(visuals, "esp enabled", CFG.ESPEnabled, function(v) CFG.ESPEnabled = v end)
 toggle(visuals, "boxes", CFG.ESPBoxes, function(v) CFG.ESPBoxes = v end)
+dropdown(visuals, "box style", {"Full", "Corner"}, CFG.ESPBoxStyle, function(v) CFG.ESPBoxStyle = v end)
+slider(visuals, "box thickness", 0.5, 4, CFG.ESPThickness, function(v) CFG.ESPThickness = v end)
 toggle(visuals, "names", CFG.ESPNames, function(v) CFG.ESPNames = v end)
+slider(visuals, "name size", 10, 20, CFG.ESPNameSize, function(v) CFG.ESPNameSize = v end)
 toggle(visuals, "health", CFG.ESPHealth, function(v) CFG.ESPHealth = v end)
 toggle(visuals, "tracers", CFG.ESPTracers, function(v) CFG.ESPTracers = v end)
 toggle(visuals, "distance", CFG.ESPDistance, function(v) CFG.ESPDistance = v end)
 toggle(visuals, "skeleton", CFG.ESPSkeleton, function(v) CFG.ESPSkeleton = v end)
+toggle(visuals, "chams", CFG.ESPChams, function(v) CFG.ESPChams = v end)
+toggle(visuals, "show team", CFG.ESPShowTeam, function(v) CFG.ESPShowTeam = v end)
 
 section(visuals, "other")
 toggle(visuals, "crosshair", CFG.Crosshair, function(v) CFG.Crosshair = v end)
@@ -964,12 +990,19 @@ toggle(visuals, "fullbright", CFG.Fullbright, function(v)
         Lighting.FogEnd = 100000
         Lighting.GlobalShadows = false
         Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+    else
+        Lighting.Brightness = 1
+        Lighting.GlobalShadows = true
     end
 end)
 toggle(visuals, "no fog", CFG.NoFog, function(v)
     CFG.NoFog = v
-    if v then Lighting.FogEnd = 100000 end
+    if v then Lighting.FogEnd = 100000 else Lighting.FogEnd = 1000 end
 end)
+
+section(visuals, "wallbang")
+toggle(visuals, "wallbang", CFG.Wallbang, function(v) CFG.Wallbang = v end)
+keybind(visuals, "wallbang key", CFG.WallbangKey, function(kb) CFG.WallbangKey = kb end)
 
 -- MOVEMENT TAB
 local movement = tabFrames["movement"]
@@ -1011,15 +1044,33 @@ toggle(exploits, "anti ragdoll", CFG.AntiRagdoll, function(v) CFG.AntiRagdoll = 
 toggle(exploits, "anti void", CFG.AntiVoid, function(v) CFG.AntiVoid = v end)
 toggle(exploits, "god mode", CFG.GodMode, function(v) CFG.GodMode = v end)
 
-section(exploits, "anti aim / void")
+section(exploits, "anti aim")
 toggle(exploits, "anti aim", CFG.AntiAim, function(v) CFG.AntiAim = v end)
-dropdown(exploits, "aa mode", {"Jitter", "Spin", "Random", "Down"}, CFG.AntiAimMode, function(v) CFG.AntiAimMode = v end)
-slider(exploits, "aa speed", 5, 50, CFG.AntiAimSpeed, function(v) CFG.AntiAimSpeed = v end)
+dropdown(exploits, "aa mode", {"Jitter", "Spin", "Random", "Down", "Backward", "Sideways"}, CFG.AntiAimMode, function(v) CFG.AntiAimMode = v end)
+slider(exploits, "aa speed", 5, 80, CFG.AntiAimSpeed, function(v) CFG.AntiAimSpeed = v end)
+slider(exploits, "aa yaw", 0, 360, CFG.AntiAimYaw, function(v) CFG.AntiAimYaw = v end)
+toggle(exploits, "desync", CFG.Desync, function(v) CFG.Desync = v end)
+slider(exploits, "desync amount", 1, 15, CFG.DesyncAmount, function(v) CFG.DesyncAmount = v end)
+
+section(exploits, "resolver")
+toggle(exploits, "resolver", CFG.Resolver, function(v) CFG.Resolver = v end)
+dropdown(exploits, "resolver mode", {"Auto", "High", "Low", "Center"}, CFG.ResolverMode, function(v) CFG.ResolverMode = v end)
+
+section(exploits, "void / airstuck")
 toggle(exploits, "void hide", CFG.VoidHide, function(v) CFG.VoidHide = v end)
 keybind(exploits, "void hide key", CFG.VoidHideKey, function(kb) CFG.VoidHideKey = kb end)
+toggle(exploits, "air stuck", CFG.AirStuck, function(v) CFG.AirStuck = v end)
+keybind(exploits, "air stuck key", CFG.AirStuckKey, function(kb) CFG.AirStuckKey = kb end)
+
+section(exploits, "target strafe")
+toggle(exploits, "target strafe", CFG.TargetStrafe, function(v) CFG.TargetStrafe = v end)
+slider(exploits, "strafe speed", 1, 30, CFG.TargetStrafeSpeed, function(v) CFG.TargetStrafeSpeed = v end)
+slider(exploits, "strafe distance", 2, 20, CFG.TargetStrafeDist, function(v) CFG.TargetStrafeDist = v end)
+slider(exploits, "strafe height", -5, 10, CFG.TargetStrafeHeight, function(v) CFG.TargetStrafeHeight = v end)
 
 section(exploits, "auto kill / tp")
 toggle(exploits, "auto kill", CFG.AutoKill, function(v) CFG.AutoKill = v end)
+dropdown(exploits, "auto kill mode", {"Shoot", "TP+Shoot", "Orbit+Shoot"}, CFG.AutoKillMode, function(v) CFG.AutoKillMode = v end)
 slider(exploits, "auto kill range", 10, 100, CFG.AutoKillRange, function(v) CFG.AutoKillRange = v end)
 toggle(exploits, "player tp", CFG.PlayerTP, function(v) CFG.PlayerTP = v end)
 keybind(exploits, "player tp key", CFG.PlayerTPKey, function(kb) CFG.PlayerTPKey = kb end)
@@ -1305,6 +1356,14 @@ UserInputService.InputBegan:Connect(function(input, gpe)
             end
         end
     end
+    if isKeyMatch(input, CFG.WallbangKey) then
+        CFG.Wallbang = not CFG.Wallbang
+        notify("Wallbang", CFG.Wallbang and "ON" or "OFF", 1.5)
+    end
+    if isKeyMatch(input, CFG.AirStuckKey) then
+        airStuck = not airStuck
+        notify("Air Stuck", airStuck and "ON" or "OFF", 1.5)
+    end
     if isKeyMatch(input, CFG.PlayerTPKey) then
         local t = stickyTarget or getClosest("HumanoidRootPart")
         if t and isAlive(t) then
@@ -1561,17 +1620,53 @@ RunService.Heartbeat:Connect(function()
         stickyTarget = nil
     end
     
+    -- Air Stuck
+    if airStuck or CFG.AirStuck then
+        root.Anchored = true
+        root.Velocity = Vector3.zero
+        root.AssemblyLinearVelocity = Vector3.zero
+    else
+        root.Anchored = false
+    end
+
     -- Anti Aim
-    if CFG.AntiAim and not voidHidden then
+    if CFG.AntiAim and not voidHidden and not airStuck then
         aaAngle = aaAngle + CFG.AntiAimSpeed
+        local base = CFrame.new(root.Position)
         if CFG.AntiAimMode == "Jitter" then
-            root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(math.random(-45, 45)), 0)
+            root.CFrame = base * CFrame.Angles(0, math.rad(CFG.AntiAimYaw + math.random(-40, 40)), 0)
         elseif CFG.AntiAimMode == "Spin" then
-            root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(CFG.AntiAimSpeed), 0)
+            root.CFrame = base * CFrame.Angles(0, math.rad(aaAngle), 0)
         elseif CFG.AntiAimMode == "Random" then
-            root.CFrame = root.CFrame * CFrame.Angles(math.rad(math.random(-30,30)), math.rad(math.random(-180,180)), math.rad(math.random(-30,30)))
+            root.CFrame = base * CFrame.Angles(math.rad(math.random(-25,25)), math.rad(math.random(0,360)), math.rad(math.random(-25,25)))
         elseif CFG.AntiAimMode == "Down" then
-            root.CFrame = CFrame.new(root.Position) * CFrame.Angles(math.rad(90), math.rad(aaAngle), 0)
+            root.CFrame = base * CFrame.Angles(math.rad(90), math.rad(aaAngle), 0)
+        elseif CFG.AntiAimMode == "Backward" then
+            local look = Camera.CFrame.LookVector
+            root.CFrame = CFrame.new(root.Position, root.Position - Vector3.new(look.X, 0, look.Z))
+        elseif CFG.AntiAimMode == "Sideways" then
+            local look = Camera.CFrame.LookVector
+            local side = Vector3.new(-look.Z, 0, look.X)
+            root.CFrame = CFrame.new(root.Position, root.Position + side)
+        end
+        -- Desync
+        if CFG.Desync then
+            local d = CFG.DesyncAmount
+            root.CFrame = root.CFrame * CFrame.new(math.random(-d,d)*0.1, 0, math.random(-d,d)*0.1)
+        end
+    end
+
+    -- Target Strafe (circle target while shooting)
+    if CFG.TargetStrafe and stickyTarget and isAlive(stickyTarget) and not voidHidden then
+        local tRoot = getRoot(stickyTarget.Character)
+        if tRoot then
+            strafeAngle = strafeAngle + CFG.TargetStrafeSpeed * 0.05
+            local offset = Vector3.new(
+                math.cos(strafeAngle) * CFG.TargetStrafeDist,
+                CFG.TargetStrafeHeight,
+                math.sin(strafeAngle) * CFG.TargetStrafeDist
+            )
+            root.CFrame = CFrame.new(tRoot.Position + offset, tRoot.Position)
         end
     end
 
@@ -1580,20 +1675,36 @@ RunService.Heartbeat:Connect(function()
         root.CFrame = CFrame.new(0, -500, 0)
     end
 
-    -- Auto Kill (teleport + shoot nearby)
+    -- Auto Kill
     if CFG.AutoKill then
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= LocalPlayer and isAlive(plr) then
                 local er = getRoot(plr.Character)
                 if er and (er.Position - root.Position).Magnitude <= CFG.AutoKillRange then
-                    -- face them
-                    root.CFrame = CFrame.new(root.Position, Vector3.new(er.Position.X, root.Position.Y, er.Position.Z))
+                    if CFG.AutoKillMode == "TP+Shoot" then
+                        root.CFrame = er.CFrame * CFrame.new(0, 0, 2)
+                    elseif CFG.AutoKillMode == "Orbit+Shoot" then
+                        strafeAngle = strafeAngle + 0.2
+                        local offset = Vector3.new(math.cos(strafeAngle)*5, 1, math.sin(strafeAngle)*5)
+                        root.CFrame = CFrame.new(er.Position + offset, er.Position)
+                    else
+                        root.CFrame = CFrame.new(root.Position, Vector3.new(er.Position.X, root.Position.Y, er.Position.Z))
+                    end
                     pcall(function()
                         local ev = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("MainEvent")
                         if not ev then ev = LocalPlayer.Backpack:FindFirstChild("MainEvent") end
                         if ev then
                             local head = getPart(plr.Character, "Head") or er
-                            ev:FireServer("Shoot", head.Position)
+                            local pos = head.Position
+                            if CFG.Resolver then
+                                if CFG.ResolverMode == "High" then pos = pos + Vector3.new(0, 2, 0)
+                                elseif CFG.ResolverMode == "Low" then pos = pos + Vector3.new(0, -1, 0)
+                                elseif CFG.ResolverMode == "Auto" then
+                                    local vel = er.Velocity
+                                    pos = pos + Vector3.new(vel.X*0.12, vel.Y*0.08, vel.Z*0.12)
+                                end
+                            end
+                            ev:FireServer("Shoot", pos)
                         end
                     end)
                 end
@@ -1679,21 +1790,33 @@ end)
 local function createESP(plr)
     espDrawings[plr] = {
         box = Drawing.new("Square"),
+        -- corner lines for corner box style
+        c1 = Drawing.new("Line"), c2 = Drawing.new("Line"), c3 = Drawing.new("Line"), c4 = Drawing.new("Line"),
+        c5 = Drawing.new("Line"), c6 = Drawing.new("Line"), c7 = Drawing.new("Line"), c8 = Drawing.new("Line"),
         name = Drawing.new("Text"),
         health = Drawing.new("Line"),
+        healthBg = Drawing.new("Line"),
         tracer = Drawing.new("Line"),
         dist = Drawing.new("Text"),
-        skeleton = {}
+        skeleton = {},
+        cham = nil
     }
     local d = espDrawings[plr]
-    d.box.Thickness = 1
+    d.box.Thickness = CFG.ESPThickness or 1.5
     d.box.Filled = false
     d.box.Color = getESPColor()
-    d.name.Size = 13
+    for _, ln in ipairs({d.c1,d.c2,d.c3,d.c4,d.c5,d.c6,d.c7,d.c8}) do
+        ln.Thickness = CFG.ESPThickness or 1.5
+        ln.Color = getESPColor()
+        ln.Visible = false
+    end
+    d.name.Size = CFG.ESPNameSize or 13
     d.name.Center = true
     d.name.Outline = true
     d.name.Color = Color3.new(1,1,1)
     d.health.Thickness = 2
+    d.healthBg.Thickness = 2
+    d.healthBg.Color = Color3.fromRGB(40,40,40)
     d.tracer.Thickness = 1
     d.tracer.Color = getESPColor()
     d.dist.Size = 11
@@ -1742,36 +1865,103 @@ RunService.RenderStepped:Connect(function()
     end
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and isAlive(plr) then
+            if CFG.TeamCheck and not CFG.ESPShowTeam and plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then
+                if espDrawings[plr] then
+                    pcall(function()
+                        espDrawings[plr].box.Visible = false
+                        for _, ln in ipairs({espDrawings[plr].c1,espDrawings[plr].c2,espDrawings[plr].c3,espDrawings[plr].c4,espDrawings[plr].c5,espDrawings[plr].c6,espDrawings[plr].c7,espDrawings[plr].c8}) do ln.Visible = false end
+                        espDrawings[plr].name.Visible = false
+                        espDrawings[plr].health.Visible = false
+                        espDrawings[plr].tracer.Visible = false
+                        espDrawings[plr].dist.Visible = false
+                    end)
+                end
+            else
             if not espDrawings[plr] then createESP(plr) end
             local d = espDrawings[plr]
             local root = getRoot(plr.Character)
             local head = getPart(plr.Character, "Head")
             if root and head then
+                -- Chams
+                if CFG.ESPChams then
+                    if not d.cham or not d.cham.Parent then
+                        pcall(function()
+                            local h = Instance.new("Highlight")
+                            h.Adornee = plr.Character
+                            h.FillColor = getESPColor()
+                            h.OutlineColor = Color3.new(1,1,1)
+                            h.FillTransparency = 0.5
+                            h.OutlineTransparency = 0
+                            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                            h.Parent = CoreGui
+                            d.cham = h
+                        end)
+                    else
+                        d.cham.FillColor = getESPColor()
+                        d.cham.Adornee = plr.Character
+                    end
+                elseif d.cham then
+                    pcall(function() d.cham:Destroy() end)
+                    d.cham = nil
+                end
+
                 local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
                 local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
                 local legPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0,3,0))
                 if onScreen then
                     local h = math.abs(headPos.Y - legPos.Y)
                     local w = h * 0.55
+                    local x, y = pos.X - w/2, pos.Y - h/2
+                    local thick = CFG.ESPThickness or 1.5
+                    local col = getESPColor()
                     pcall(function()
-                        d.box.Size = Vector2.new(w, h)
-                        d.box.Position = Vector2.new(pos.X - w/2, pos.Y - h/2)
-                        d.box.Visible = CFG.ESPBoxes
+                        -- Full box or Corner box
+                        if CFG.ESPBoxStyle == "Corner" then
+                            d.box.Visible = false
+                            local cl = math.min(w, h) * 0.25
+                            local corners = {
+                                {Vector2.new(x,y), Vector2.new(x+cl,y)}, {Vector2.new(x,y), Vector2.new(x,y+cl)},
+                                {Vector2.new(x+w,y), Vector2.new(x+w-cl,y)}, {Vector2.new(x+w,y), Vector2.new(x+w,y+cl)},
+                                {Vector2.new(x,y+h), Vector2.new(x+cl,y+h)}, {Vector2.new(x,y+h), Vector2.new(x,y+h-cl)},
+                                {Vector2.new(x+w,y+h), Vector2.new(x+w-cl,y+h)}, {Vector2.new(x+w,y+h), Vector2.new(x+w,y+h-cl)},
+                            }
+                            local lines = {d.c1,d.c2,d.c3,d.c4,d.c5,d.c6,d.c7,d.c8}
+                            for i, ln in ipairs(lines) do
+                                ln.From = corners[i][1]
+                                ln.To = corners[i][2]
+                                ln.Color = col
+                                ln.Thickness = thick
+                                ln.Visible = CFG.ESPBoxes
+                            end
+                        else
+                            for _, ln in ipairs({d.c1,d.c2,d.c3,d.c4,d.c5,d.c6,d.c7,d.c8}) do ln.Visible = false end
+                            d.box.Size = Vector2.new(w, h)
+                            d.box.Position = Vector2.new(x, y)
+                            d.box.Thickness = thick
+                            d.box.Color = col
+                            d.box.Visible = CFG.ESPBoxes
+                        end
+
                         d.name.Text = plr.Name
-                        d.name.Position = Vector2.new(pos.X, headPos.Y - 16)
+                        d.name.Size = CFG.ESPNameSize or 13
+                        d.name.Position = Vector2.new(pos.X, headPos.Y - 18)
                         d.name.Visible = CFG.ESPNames
                         local hum = plr.Character:FindFirstChild("Humanoid")
                         local hp = hum and hum.Health/hum.MaxHealth or 1
-                        d.health.From = Vector2.new(pos.X - w/2 - 4, pos.Y + h/2)
-                        d.health.To = Vector2.new(pos.X - w/2 - 4, pos.Y + h/2 - h*hp)
+                        d.healthBg.From = Vector2.new(x - 5, y + h)
+                        d.healthBg.To = Vector2.new(x - 5, y)
+                        d.healthBg.Visible = CFG.ESPHealth
+                        d.health.From = Vector2.new(x - 5, y + h)
+                        d.health.To = Vector2.new(x - 5, y + h - h*hp)
                         d.health.Color = Color3.fromRGB(255*(1-hp), 255*hp, 0)
                         d.health.Visible = CFG.ESPHealth
                         d.tracer.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
                         d.tracer.To = Vector2.new(pos.X, pos.Y)
+                        d.tracer.Color = col
                         d.tracer.Visible = CFG.ESPTracers
                         if CFG.ESPDistance then
                             d.dist.Text = math.floor((root.Position-Camera.CFrame.Position).Magnitude) .. "m"
-                            d.dist.Position = Vector2.new(pos.X, pos.Y + h/2 + 4)
+                            d.dist.Position = Vector2.new(pos.X, y + h + 6)
                             d.dist.Visible = true
                         else
                             d.dist.Visible = false
@@ -1786,6 +1976,7 @@ RunService.RenderStepped:Connect(function()
                                 if fromOn and toOn then
                                     bone.line.From = Vector2.new(fromPos.X, fromPos.Y)
                                     bone.line.To = Vector2.new(toPos.X, toPos.Y)
+                                    bone.line.Color = col
                                     bone.line.Visible = CFG.ESPSkeleton
                                 else
                                     bone.line.Visible = false
@@ -1798,14 +1989,17 @@ RunService.RenderStepped:Connect(function()
                 else
                     pcall(function()
                         d.box.Visible = false
+                        for _, ln in ipairs({d.c1,d.c2,d.c3,d.c4,d.c5,d.c6,d.c7,d.c8}) do ln.Visible = false end
                         d.name.Visible = false
                         d.health.Visible = false
+                        if d.healthBg then d.healthBg.Visible = false end
                         d.tracer.Visible = false
                         d.dist.Visible = false
                         for _, bone in ipairs(d.skeleton) do bone.line.Visible = false end
                     end)
                 end
             end
+            end -- team check else
         elseif espDrawings[plr] then
             pcall(function()
                 espDrawings[plr].box.Visible = false
