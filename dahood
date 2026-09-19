@@ -57,6 +57,10 @@ getgenv().KafexLua = getgenv().KafexLua or {
     SilentAimMode = "hold", SilentPart = "Head", UseAimbotTarget = false, EnablePrediction = true, SilentAlways = false, ClosestPart = true,
     Triggerbot = false, TriggerDelay = 0.015, Killaura = false, KillauraRange = 15, AutoParry = false, AutoParryDelay = 0.05,
     OrbitEnabled = false, OrbitKey = {Type = "Key", Value = "X"}, OrbitSpeed = 8, OrbitDistance = 6, OrbitHeight = 1,
+    AntiAim = false, AntiAimMode = "Jitter", AntiAimSpeed = 20,
+    VoidHide = false, VoidHideKey = {Type = "Key", Value = "V"},
+    AutoKill = false, AutoKillRange = 25,
+    PlayerTP = false, PlayerTPKey = {Type = "Key", Value = "C"},
     ESPEnabled = true, ESPBoxes = true, ESPNames = true, ESPHealth = true, ESPTracers = true,
     ESPDistance = true, ESPSkeleton = false, ESPChams = false, ESPTrails = false, ESPColorHex = "#FF2828",
     Crosshair = false, CrosshairSize = 8, CrosshairColor = "#FFFFFF", Radar = false, RadarSize = 150,
@@ -78,6 +82,9 @@ local silentLocked = false
 local stickyTarget = nil
 local orbiting = false
 local orbitAngle = 0
+local voidHidden = false
+local aaAngle = 0
+local originalRootCF = nil
 local bodyVel, bodyGyro, linVel, alignOri
 local guiOpen = true
 local notifications = {}
@@ -1004,6 +1011,19 @@ toggle(exploits, "anti ragdoll", CFG.AntiRagdoll, function(v) CFG.AntiRagdoll = 
 toggle(exploits, "anti void", CFG.AntiVoid, function(v) CFG.AntiVoid = v end)
 toggle(exploits, "god mode", CFG.GodMode, function(v) CFG.GodMode = v end)
 
+section(exploits, "anti aim / void")
+toggle(exploits, "anti aim", CFG.AntiAim, function(v) CFG.AntiAim = v end)
+dropdown(exploits, "aa mode", {"Jitter", "Spin", "Random", "Down"}, CFG.AntiAimMode, function(v) CFG.AntiAimMode = v end)
+slider(exploits, "aa speed", 5, 50, CFG.AntiAimSpeed, function(v) CFG.AntiAimSpeed = v end)
+toggle(exploits, "void hide", CFG.VoidHide, function(v) CFG.VoidHide = v end)
+keybind(exploits, "void hide key", CFG.VoidHideKey, function(kb) CFG.VoidHideKey = kb end)
+
+section(exploits, "auto kill / tp")
+toggle(exploits, "auto kill", CFG.AutoKill, function(v) CFG.AutoKill = v end)
+slider(exploits, "auto kill range", 10, 100, CFG.AutoKillRange, function(v) CFG.AutoKillRange = v end)
+toggle(exploits, "player tp", CFG.PlayerTP, function(v) CFG.PlayerTP = v end)
+keybind(exploits, "player tp key", CFG.PlayerTPKey, function(kb) CFG.PlayerTPKey = kb end)
+
 -- PLAYER TAB
 local playerTab = tabFrames["player"]
 section(playerTab, "local")
@@ -1265,10 +1285,39 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         end
     end
     if isKeyMatch(input, CFG.SilentAimKey) then
-        if CFG.SilentAimMode == "hold" then silentLocked = true
-        elseif CFG.SilentAimMode == "toggle" then silentLocked = not silentLocked end
+        -- always toggle behavior for silent (one click = on forever until click again)
+        silentLocked = not silentLocked
+        CFG.SilentAlways = silentLocked
+        notify("Silent Aim", silentLocked and "ON" or "OFF", 1.5)
     end
     if isKeyMatch(input, CFG.FlingKey) then CFG.FlingEnabled = true end
+    if isKeyMatch(input, CFG.VoidHideKey) then
+        voidHidden = not voidHidden
+        local root = getRoot(LocalPlayer.Character)
+        if root then
+            if voidHidden then
+                originalRootCF = root.CFrame
+                root.CFrame = CFrame.new(0, -500, 0) -- void
+                notify("Void Hide", "Hidden", 1.5)
+            else
+                if originalRootCF then root.CFrame = originalRootCF end
+                notify("Void Hide", "Visible", 1.5)
+            end
+        end
+    end
+    if isKeyMatch(input, CFG.PlayerTPKey) then
+        local t = stickyTarget or getClosest("HumanoidRootPart")
+        if t and isAlive(t) then
+            local er = getRoot(t.Character)
+            local lr = getRoot(LocalPlayer.Character)
+            if er and lr then
+                lr.CFrame = er.CFrame * CFrame.new(0, 0, 2)
+                notify("TP", "Teleported to " .. t.Name, 1.5)
+            end
+        else
+            notify("TP", "No target", 1.5)
+        end
+    end
     if isKeyMatch(input, CFG.TeleportKey) and CFG.TeleportToMouse then
         local lr = getRoot(LocalPlayer.Character)
         if lr then
@@ -1285,7 +1334,7 @@ UserInputService.InputEnded:Connect(function(input)
         target = nil
         if not CFG.StickyAim then stickyTarget = nil end
     end
-    if isKeyMatch(input, CFG.SilentAimKey) and CFG.SilentAimMode == "hold" then silentLocked = false end
+    -- silent is toggle only, no release
     if isKeyMatch(input, CFG.FlingKey) then CFG.FlingEnabled = false end
 end)
 
@@ -1512,6 +1561,46 @@ RunService.Heartbeat:Connect(function()
         stickyTarget = nil
     end
     
+    -- Anti Aim
+    if CFG.AntiAim and not voidHidden then
+        aaAngle = aaAngle + CFG.AntiAimSpeed
+        if CFG.AntiAimMode == "Jitter" then
+            root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(math.random(-45, 45)), 0)
+        elseif CFG.AntiAimMode == "Spin" then
+            root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(CFG.AntiAimSpeed), 0)
+        elseif CFG.AntiAimMode == "Random" then
+            root.CFrame = root.CFrame * CFrame.Angles(math.rad(math.random(-30,30)), math.rad(math.random(-180,180)), math.rad(math.random(-30,30)))
+        elseif CFG.AntiAimMode == "Down" then
+            root.CFrame = CFrame.new(root.Position) * CFrame.Angles(math.rad(90), math.rad(aaAngle), 0)
+        end
+    end
+
+    -- Keep void hide position
+    if voidHidden then
+        root.CFrame = CFrame.new(0, -500, 0)
+    end
+
+    -- Auto Kill (teleport + shoot nearby)
+    if CFG.AutoKill then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and isAlive(plr) then
+                local er = getRoot(plr.Character)
+                if er and (er.Position - root.Position).Magnitude <= CFG.AutoKillRange then
+                    -- face them
+                    root.CFrame = CFrame.new(root.Position, Vector3.new(er.Position.X, root.Position.Y, er.Position.Z))
+                    pcall(function()
+                        local ev = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("MainEvent")
+                        if not ev then ev = LocalPlayer.Backpack:FindFirstChild("MainEvent") end
+                        if ev then
+                            local head = getPart(plr.Character, "Head") or er
+                            ev:FireServer("Shoot", head.Position)
+                        end
+                    end)
+                end
+            end
+        end
+    end
+
     if CFG.SpeedEnabled then hum.WalkSpeed = CFG.WalkSpeed else hum.WalkSpeed = 16 end
     hum.JumpPower = CFG.JumpPower
     
