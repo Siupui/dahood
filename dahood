@@ -52,9 +52,11 @@ local Camera = Workspace.CurrentCamera
 getgenv().KafexLua = getgenv().KafexLua or {
     AimbotEnabled = false, AimbotKey = {Type = "MouseButton", Value = "MouseButton2"}, AimbotMode = "hold",
     AimPart = "Head", AimSmooth = 0.12, AimFOV = 160, ShowFOV = true, Prediction = 0.135,
+    StickyAim = true, StickyAimKey = {Type = "Key", Value = "Q"},
     TeamCheck = false, WallCheck = false, SilentAim = false, SilentAimKey = {Type = "MouseButton", Value = "MouseButton2"},
     SilentAimMode = "hold", SilentPart = "Head", UseAimbotTarget = false, EnablePrediction = false,
     Triggerbot = false, TriggerDelay = 0.015, Killaura = false, KillauraRange = 15, AutoParry = false, AutoParryDelay = 0.05,
+    OrbitEnabled = false, OrbitKey = {Type = "Key", Value = "X"}, OrbitSpeed = 8, OrbitDistance = 6, OrbitHeight = 1,
     ESPEnabled = true, ESPBoxes = true, ESPNames = true, ESPHealth = true, ESPTracers = true,
     ESPDistance = true, ESPSkeleton = false, ESPChams = false, ESPTrails = false, ESPColorHex = "#FF2828",
     Crosshair = false, CrosshairSize = 8, CrosshairColor = "#FFFFFF", Radar = false, RadarSize = 150,
@@ -73,6 +75,9 @@ local toggleFly, toggleFreecam
 
 local locked, target, flying, freecamming = false, nil, false, false
 local silentLocked = false
+local stickyTarget = nil
+local orbiting = false
+local orbitAngle = 0
 local bodyVel, bodyGyro, linVel, alignOri
 local guiOpen = true
 local notifications = {}
@@ -899,8 +904,17 @@ slider(combat, "smoothness", 0.01, 1, CFG.AimSmooth, function(v) CFG.AimSmooth =
 slider(combat, "fov", 10, 400, CFG.AimFOV, function(v) CFG.AimFOV = v end)
 toggle(combat, "show fov", CFG.ShowFOV, function(v) CFG.ShowFOV = v end)
 slider(combat, "prediction", 0, 0.5, CFG.Prediction, function(v) CFG.Prediction = v end)
+toggle(combat, "sticky aim (lock head)", CFG.StickyAim, function(v) CFG.StickyAim = v end)
+keybind(combat, "sticky key", CFG.StickyAimKey, function(kb) CFG.StickyAimKey = kb end)
 toggle(combat, "team check", CFG.TeamCheck, function(v) CFG.TeamCheck = v end)
 toggle(combat, "wall check", CFG.WallCheck, function(v) CFG.WallCheck = v end)
+
+section(combat, "hvh / orbit")
+toggle(combat, "orbit", CFG.OrbitEnabled, function(v) CFG.OrbitEnabled = v end)
+keybind(combat, "orbit key", CFG.OrbitKey, function(kb) CFG.OrbitKey = kb end)
+slider(combat, "orbit speed", 1, 30, CFG.OrbitSpeed, function(v) CFG.OrbitSpeed = v end)
+slider(combat, "orbit distance", 2, 20, CFG.OrbitDistance, function(v) CFG.OrbitDistance = v end)
+slider(combat, "orbit height", -5, 10, CFG.OrbitHeight, function(v) CFG.OrbitHeight = v end)
 
 section(combat, "silent aim")
 toggle(combat, "silent aim", CFG.SilentAim, function(v) CFG.SilentAim = v end)
@@ -1220,6 +1234,34 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         if CFG.AimbotMode == "hold" then locked = true
         elseif CFG.AimbotMode == "toggle" then locked = not locked end
     end
+    if isKeyMatch(input, CFG.StickyAimKey) then
+        if stickyTarget then
+            stickyTarget = nil
+            notify("Sticky", "Unlocked", 1.5)
+        else
+            local t = getClosest(CFG.AimPart)
+            if t then
+                stickyTarget = t
+                locked = true
+                notify("Sticky", "Locked: " .. t.Name, 1.5)
+            end
+        end
+    end
+    if isKeyMatch(input, CFG.OrbitKey) then
+        orbiting = not orbiting
+        if orbiting then
+            local t = stickyTarget or getClosest(CFG.AimPart)
+            if t then
+                stickyTarget = t
+                notify("Orbit", "Orbiting: " .. t.Name, 1.5)
+            else
+                orbiting = false
+                notify("Orbit", "No target", 1.5)
+            end
+        else
+            notify("Orbit", "Stopped", 1.5)
+        end
+    end
     if isKeyMatch(input, CFG.SilentAimKey) then
         if CFG.SilentAimMode == "hold" then silentLocked = true
         elseif CFG.SilentAimMode == "toggle" then silentLocked = not silentLocked end
@@ -1236,7 +1278,11 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-    if isKeyMatch(input, CFG.AimbotKey) and CFG.AimbotMode == "hold" then locked = false; target = nil end
+    if isKeyMatch(input, CFG.AimbotKey) and CFG.AimbotMode == "hold" then
+        locked = false
+        target = nil
+        if not CFG.StickyAim then stickyTarget = nil end
+    end
     if isKeyMatch(input, CFG.SilentAimKey) and CFG.SilentAimMode == "hold" then silentLocked = false end
     if isKeyMatch(input, CFG.FlingKey) then CFG.FlingEnabled = false end
 end)
@@ -1312,19 +1358,32 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    if CFG.AimbotEnabled and locked then
-        target = getClosest(CFG.AimPart)
-        if target and isAlive(target) then
-            local pred = getPredictedPos(target, CFG.AimPart, CFG.Prediction)
+    -- Sticky / normal aimbot
+    if CFG.AimbotEnabled and (locked or stickyTarget) then
+        local aimTarget = stickyTarget
+        if not aimTarget or not isAlive(aimTarget) then
+            aimTarget = getClosest(CFG.AimPart)
+            if CFG.StickyAim and locked and aimTarget then
+                stickyTarget = aimTarget
+            end
+        end
+        if aimTarget and isAlive(aimTarget) then
+            target = aimTarget
+            local pred = getPredictedPos(aimTarget, CFG.AimPart, CFG.Prediction)
             if pred then
                 local camPos = Camera.CFrame.Position
                 local newCF = CFrame.new(camPos, pred)
-                if CFG.AimSmooth and CFG.AimSmooth > 0 and CFG.AimSmooth < 1 then
+                -- Sticky = hard lock (crosshair always on head), otherwise smooth
+                if CFG.StickyAim or stickyTarget then
+                    Camera.CFrame = newCF
+                elseif CFG.AimSmooth and CFG.AimSmooth > 0 and CFG.AimSmooth < 1 then
                     Camera.CFrame = Camera.CFrame:Lerp(newCF, CFG.AimSmooth)
                 else
                     Camera.CFrame = newCF
                 end
             end
+        else
+            stickyTarget = nil
         end
     end
 end)
@@ -1391,6 +1450,28 @@ RunService.Heartbeat:Connect(function()
     local hum = char and char:FindFirstChild("Humanoid")
     local root = getRoot(char)
     if not hum or not root then return end
+    
+    -- ORBIT (HvH)
+    if orbiting and stickyTarget and isAlive(stickyTarget) then
+        local tRoot = getRoot(stickyTarget.Character)
+        if tRoot then
+            orbitAngle = orbitAngle + (CFG.OrbitSpeed * 0.05)
+            local offset = Vector3.new(
+                math.cos(orbitAngle) * CFG.OrbitDistance,
+                CFG.OrbitHeight,
+                math.sin(orbitAngle) * CFG.OrbitDistance
+            )
+            root.CFrame = CFrame.new(tRoot.Position + offset)
+            -- Keep looking at them
+            local look = getPredictedPos(stickyTarget, "Head", CFG.Prediction) or tRoot.Position
+            if look then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, look)
+            end
+        end
+    elseif orbiting then
+        orbiting = false
+        stickyTarget = nil
+    end
     
     if CFG.SpeedEnabled then hum.WalkSpeed = CFG.WalkSpeed else hum.WalkSpeed = 16 end
     hum.JumpPower = CFG.JumpPower
