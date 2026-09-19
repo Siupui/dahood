@@ -54,7 +54,7 @@ getgenv().KafexLua = getgenv().KafexLua or {
     AimPart = "Head", AimSmooth = 0.12, AimFOV = 160, ShowFOV = true, Prediction = 0.135,
     StickyAim = true, StickyAimKey = {Type = "Key", Value = "Q"},
     TeamCheck = false, WallCheck = false, SilentAim = false, SilentAimKey = {Type = "MouseButton", Value = "MouseButton2"},
-    SilentAimMode = "hold", SilentPart = "Head", UseAimbotTarget = false, EnablePrediction = false,
+    SilentAimMode = "hold", SilentPart = "Head", UseAimbotTarget = false, EnablePrediction = true, SilentAlways = false, ClosestPart = true,
     Triggerbot = false, TriggerDelay = 0.015, Killaura = false, KillauraRange = 15, AutoParry = false, AutoParryDelay = 0.05,
     OrbitEnabled = false, OrbitKey = {Type = "Key", Value = "X"}, OrbitSpeed = 8, OrbitDistance = 6, OrbitHeight = 1,
     ESPEnabled = true, ESPBoxes = true, ESPNames = true, ESPHealth = true, ESPTracers = true,
@@ -921,6 +921,8 @@ toggle(combat, "silent aim", CFG.SilentAim, function(v) CFG.SilentAim = v end)
 keybind(combat, "silent key", CFG.SilentAimKey, function(kb) CFG.SilentAimKey = kb end)
 dropdown(combat, "silent mode", {"hold", "toggle"}, CFG.SilentAimMode, function(v) CFG.SilentAimMode = v end)
 dropdown(combat, "silent part", {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso"}, CFG.SilentPart, function(v) CFG.SilentPart = v end)
+toggle(combat, "silent always on", CFG.SilentAlways, function(v) CFG.SilentAlways = v end)
+toggle(combat, "closest part", CFG.ClosestPart, function(v) CFG.ClosestPart = v end)
 toggle(combat, "use aimbot target", CFG.UseAimbotTarget, function(v) CFG.UseAimbotTarget = v end)
 toggle(combat, "enable prediction", CFG.EnablePrediction, function(v) CFG.EnablePrediction = v end)
 
@@ -1388,7 +1390,13 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- SILENT AIM HOOK (Da Hood / Universal)
+-- SILENT AIM HOOK (Da Hood / Universal / HvH)
+local function getSilentTarget()
+    if stickyTarget and isAlive(stickyTarget) then return stickyTarget end
+    if CFG.UseAimbotTarget and target and isAlive(target) then return target end
+    return getClosest(CFG.SilentPart)
+end
+
 pcall(function()
     local mt = getrawmetatable(game)
     local old = mt.__namecall
@@ -1396,24 +1404,39 @@ pcall(function()
     mt.__namecall = newcclosure(function(self, ...)
         local method = getnamecallmethod()
         local args = {...}
-        if CFG.SilentAim and silentLocked and method == "FireServer" then
+        if CFG.SilentAim and (silentLocked or CFG.SilentAlways) and method == "FireServer" then
             local remoteName = tostring(self)
             local arg1 = tostring(args[1] or "")
-            -- Common Da Hood / Hood Customs remotes
-            if remoteName == "MainEvent" or remoteName:find("MainEvent") or remoteName:find("Remote") then
-                if arg1 == "MousePos" or arg1 == "MouseUpdatedPos" or arg1 == "UpdateMousePos" or arg1 == "MOUSE" or arg1 == "Shoot" then
-                    local t = (CFG.UseAimbotTarget and target) or getClosest(CFG.SilentPart)
-                    if t and isAlive(t) then
-                        local predAmt = (CFG.EnablePrediction or CFG.Prediction > 0) and CFG.Prediction or 0
-                        local pos = getPredictedPos(t, CFG.SilentPart, predAmt)
-                        if pos then
-                            if arg1 == "Shoot" then
-                                args[2] = pos
-                            else
-                                args[2] = pos
+            local isMouseRemote = (
+                arg1 == "MousePos" or arg1 == "MouseUpdatedPos" or arg1 == "UpdateMousePos" or
+                arg1 == "MOUSE" or arg1 == "Shoot" or arg1 == "UpdateMouse" or
+                arg1:lower():find("mouse") or arg1:lower():find("pos")
+            )
+            if isMouseRemote or remoteName:find("MainEvent") or remoteName:find("RemoteEvent") then
+                local t = getSilentTarget()
+                if t and isAlive(t) then
+                    local predAmt = CFG.Prediction or 0.12
+                    if CFG.EnablePrediction == false then predAmt = 0 end
+                    local partName = CFG.SilentPart or "Head"
+                    if CFG.ClosestPart then
+                        -- pick closest part to camera
+                        local best, bestDist = nil, math.huge
+                        for _, pname in ipairs({"Head","UpperTorso","HumanoidRootPart","LowerTorso"}) do
+                            local p = getPart(t.Character, pname)
+                            if p then
+                                local sp, on = Camera:WorldToViewportPoint(p.Position)
+                                if on then
+                                    local d = (Vector2.new(sp.X,sp.Y) - Vector2.new(Mouse.X,Mouse.Y)).Magnitude
+                                    if d < bestDist then bestDist = d; best = pname end
+                                end
                             end
-                            return old(self, unpack(args))
                         end
+                        if best then partName = best end
+                    end
+                    local pos = getPredictedPos(t, partName, predAmt)
+                    if pos then
+                        args[2] = pos
+                        return old(self, unpack(args))
                     end
                 end
             end
@@ -1423,19 +1446,28 @@ pcall(function()
     setreadonly(mt, true)
 end)
 
--- Also hook __index for some executors / older silent methods
+-- Mouse.Hit / Mouse.Target override (works on many executors)
 pcall(function()
-    local mt = getrawmetatable(game)
+    local mt = getrawmetatable(Mouse)
+    if not mt then return end
     local oldIndex = mt.__index
     setreadonly(mt, false)
     mt.__index = newcclosure(function(self, key)
-        if CFG.SilentAim and silentLocked and key == "Hit" then
-            local t = (CFG.UseAimbotTarget and target) or getClosest(CFG.SilentPart)
-            if t and isAlive(t) then
-                local predAmt = (CFG.EnablePrediction or CFG.Prediction > 0) and CFG.Prediction or 0
-                local pos = getPredictedPos(t, CFG.SilentPart, predAmt)
-                if pos then
-                    return pos
+        if CFG.SilentAim and (silentLocked or CFG.SilentAlways) then
+            if key == "Hit" or key == "hit" then
+                local t = getSilentTarget()
+                if t and isAlive(t) then
+                    local predAmt = CFG.Prediction or 0.12
+                    if CFG.EnablePrediction == false then predAmt = 0 end
+                    local pos = getPredictedPos(t, CFG.SilentPart or "Head", predAmt)
+                    if pos then
+                        return CFrame.new(pos)
+                    end
+                end
+            elseif key == "Target" or key == "target" then
+                local t = getSilentTarget()
+                if t and isAlive(t) then
+                    return getPart(t.Character, CFG.SilentPart or "Head") or getRoot(t.Character)
                 end
             end
         end
@@ -1451,24 +1483,31 @@ RunService.Heartbeat:Connect(function()
     local root = getRoot(char)
     if not hum or not root then return end
     
-    -- ORBIT (HvH)
-    if orbiting and stickyTarget and isAlive(stickyTarget) then
+    -- ORBIT (HvH) - stick to target and circle while aiming
+    if (orbiting or CFG.OrbitEnabled) and stickyTarget and isAlive(stickyTarget) then
         local tRoot = getRoot(stickyTarget.Character)
         if tRoot then
-            orbitAngle = orbitAngle + (CFG.OrbitSpeed * 0.05)
+            orbitAngle = orbitAngle + (CFG.OrbitSpeed * 0.06)
+            local dist = CFG.OrbitDistance
+            local height = CFG.OrbitHeight
             local offset = Vector3.new(
-                math.cos(orbitAngle) * CFG.OrbitDistance,
-                CFG.OrbitHeight,
-                math.sin(orbitAngle) * CFG.OrbitDistance
+                math.cos(orbitAngle) * dist,
+                height,
+                math.sin(orbitAngle) * dist
             )
-            root.CFrame = CFrame.new(tRoot.Position + offset)
-            -- Keep looking at them
-            local look = getPredictedPos(stickyTarget, "Head", CFG.Prediction) or tRoot.Position
-            if look then
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, look)
+            -- Smooth stick
+            local targetCF = CFrame.new(tRoot.Position + offset)
+            root.CFrame = root.CFrame:Lerp(targetCF, 0.45)
+            -- Force camera + character look at target head
+            local lookPos = getPredictedPos(stickyTarget, CFG.SilentPart or "Head", CFG.Prediction) or tRoot.Position
+            if lookPos then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, lookPos)
+                if root then
+                    root.CFrame = CFrame.new(root.Position, Vector3.new(lookPos.X, root.Position.Y, lookPos.Z))
+                end
             end
         end
-    elseif orbiting then
+    elseif orbiting and (not stickyTarget or not isAlive(stickyTarget)) then
         orbiting = false
         stickyTarget = nil
     end
