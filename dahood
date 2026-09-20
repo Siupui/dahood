@@ -1,3 +1,10 @@
+-- KAFEX LUA bootstrap
+if not game then return end
+local function _safe(f) pcall(f) end
+if type(loadstring) ~= "function" and type(load) == "function" then
+    loadstring = load
+end
+
 --[[
     Cinder Da Hood — KAFEX LUA PREMIUM (FIXED)
     made by kafex + fixed for Nono
