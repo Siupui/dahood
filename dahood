@@ -68,8 +68,8 @@ getgenv().KafexLua = getgenv().KafexLua or {
     SoundsEnabled = true, SoundVolume = 1,
     SoundKill = "custom_hit",
     SoundHeadshot = "custom_hit",
-    SoundToggle = "rbxassetid://12222059",
-    SoundError = "rbxassetid://12221984",
+    SoundToggle = "rbxassetid://6895079853",
+    SoundError = "rbxassetid://6895079853",
     CustomHitSound = true,
     ESPEnabled = true, ESPBoxes = true, ESPNames = true, ESPHealth = true, ESPTracers = true,
     ESPDistance = true, ESPSkeleton = false, ESPChams = false, ESPTrails = false, ESPColorHex = "#FF2828",
@@ -115,49 +115,98 @@ local function getESPColor() return Color3.fromHex(CFG.ESPColorHex) end
 
 local CUSTOM_HIT_B64 = "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"
 
-local function ensureHitSound()
-    if isfile and isfile("skeethitsound.mp3") then return true end
-    if writefile then
-        pcall(function()
-            local data = crypt and crypt.base64decode and crypt.base64decode(CUSTOM_HIT_B64) or nil
-            if not data then
-                -- fallback pure lua base64 decode
-                local b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-                data = CUSTOM_HIT_B64:gsub("[^"..b.."=]", "")
-                local t = {}
-                for i = 1, #data, 4 do
-                    local n = (b:find(data:sub(i,i)) - 1) * 262144
-                        + ((b:find(data:sub(i+1,i+1)) or 1) - 1) * 4096
-                        + ((b:find(data:sub(i+2,i+2)) or 1) - 1) * 64
-                        + ((b:find(data:sub(i+3,i+3)) or 1) - 1)
-                    t[#t+1] = string.char(math.floor(n/65536)%256, math.floor(n/256)%256, n%256)
-                end
-                data = table.concat(t)
-            end
-            writefile("skeethitsound.mp3", data)
-        end)
-        return isfile and isfile("skeethitsound.mp3")
+local hitSoundReady = false
+local hitSoundId = nil
+
+local function decodeBase64(data)
+    local b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    data = data:gsub("[^"..b.."=]", "")
+    local t = {}
+    for i = 1, #data, 4 do
+        local c1 = (b:find(data:sub(i,i), 1, true) or 1) - 1
+        local c2 = (b:find(data:sub(i+1,i+1), 1, true) or 1) - 1
+        local c3 = (b:find(data:sub(i+2,i+2), 1, true) or 1) - 1
+        local c4 = (b:find(data:sub(i+3,i+3), 1, true) or 1) - 1
+        local n = c1 * 262144 + c2 * 4096 + c3 * 64 + c4
+        local b1 = math.floor(n / 65536) % 256
+        local b2 = math.floor(n / 256) % 256
+        local b3 = n % 256
+        if data:sub(i+2,i+2) == "=" then
+            t[#t+1] = string.char(b1)
+        elseif data:sub(i+3,i+3) == "=" then
+            t[#t+1] = string.char(b1, b2)
+        else
+            t[#t+1] = string.char(b1, b2, b3)
+        end
     end
-    return false
+    return table.concat(t)
 end
 
-local function playSound(id, vol)
-    if not CFG.SoundsEnabled then return end
-    pcall(function()
-        local s = Instance.new("Sound")
-        if id == "custom_hit" or id == CFG.SoundKill or id == CFG.SoundHeadshot then
-            if ensureHitSound() and getcustomasset then
-                s.SoundId = getcustomasset("skeethitsound.mp3")
-            else
-                s.SoundId = "rbxassetid://138097048" -- fallback
+local function ensureHitSound()
+    if hitSoundReady and hitSoundId then return true end
+    local ok = pcall(function()
+        if isfile and isfile("skeethitsound.mp3") then
+            if getcustomasset then
+                hitSoundId = getcustomasset("skeethitsound.mp3")
+                hitSoundReady = true
+                return
             end
-        else
-            s.SoundId = id
         end
-        s.Volume = (vol or CFG.SoundVolume or 1)
-        s.PlayOnRemove = true
-        s.Parent = Camera
-        s:Destroy()
+        if writefile then
+            local data = nil
+            if crypt and crypt.base64decode then
+                data = crypt.base64decode(CUSTOM_HIT_B64)
+            end
+            if not data then
+                data = decodeBase64(CUSTOM_HIT_B64)
+            end
+            if data then
+                writefile("skeethitsound.mp3", data)
+                if getcustomasset then
+                    hitSoundId = getcustomasset("skeethitsound.mp3")
+                    hitSoundReady = true
+                end
+            end
+        end
+    end)
+    return hitSoundReady and hitSoundId ~= nil
+end
+
+-- Safe fallbacks that work without moderation
+local SAFE_SOUNDS = {
+    toggle = "rbxassetid://6042053626",
+    click = "rbxassetid://6895079853",
+    notify = "rbxassetid://6895079853",
+}
+
+local function playSound(id, vol)
+    if not CFG or not CFG.SoundsEnabled then return end
+    task.spawn(function()
+        local soundId = nil
+        if id == "custom_hit" or id == CFG.SoundKill or id == CFG.SoundHeadshot then
+            if ensureHitSound() and hitSoundId then
+                soundId = hitSoundId
+            else
+                soundId = SAFE_SOUNDS.click
+            end
+        elseif type(id) == "string" and id:find("rbxassetid://") then
+            soundId = id
+        else
+            soundId = SAFE_SOUNDS.notify
+        end
+        local ok, err = pcall(function()
+            local s = Instance.new("Sound")
+            s.SoundId = soundId
+            s.Volume = math.clamp(vol or CFG.SoundVolume or 1, 0, 2)
+            s.Parent = Camera or workspace
+            s:Play()
+            s.Ended:Connect(function()
+                s:Destroy()
+            end)
+            task.delay(3, function()
+                if s and s.Parent then s:Destroy() end
+            end)
+        end)
     end)
 end
 
