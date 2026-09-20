@@ -5,6 +5,8 @@
 ]]
 
 local executor = (identifyexecutor and identifyexecutor()) or "Unknown"
+if not newcclosure then newcclosure = function(f) return f end end
+if not getgenv then getgenv = function() return _G end end
 
 local function safeHttpGet(url)
     if syn and syn.request then
@@ -45,11 +47,13 @@ local Lighting = game:GetService("Lighting")
 local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
 local Debris = game:GetService("Debris")
-local LocalPlayer = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+repeat task.wait() until LocalPlayer and LocalPlayer.Character
 local Mouse = LocalPlayer:GetMouse()
 local Camera = Workspace.CurrentCamera
 
-getgenv().KafexLua = getgenv().KafexLua or {
+local _genv = (getgenv and getgenv()) or _G
+_genv.KafexLua = _genv.KafexLua or {
     AimbotEnabled = false, AimbotKey = {Type = "MouseButton", Value = "MouseButton2"}, AimbotMode = "hold",
     AimPart = "Head", AimSmooth = 0.12, AimFOV = 160, ShowFOV = true, Prediction = 0.135,
     StickyAim = true, StickyAimKey = {Type = "Key", Value = "Q"},
@@ -86,7 +90,7 @@ getgenv().KafexLua = getgenv().KafexLua or {
     GUIScale = 1, GUIBlur = true, GUITransparency = 0.05,
 }
 
-local CFG = getgenv().KafexLua
+local CFG = _genv.KafexLua
 local toggleFly, toggleFreecam
 
 local locked, target, flying, freecamming = false, nil, false, false
@@ -1251,7 +1255,7 @@ section(config, "config")
 button(config, "save config", saveConfig, Color3.fromRGB(40, 100, 60))
 button(config, "load config", loadConfig, Color3.fromRGB(60, 60, 120))
 button(config, "reset config", function()
-    getgenv().KafexLua = nil
+    _genv.KafexLua = nil
     notify("Config", "Reset - reload script", 3)
 end, Color3.fromRGB(120, 40, 40))
 
@@ -1404,12 +1408,17 @@ UserInputService.InputBegan:Connect(function(input, processed)
 end)
 
 -- FOV CIRCLE
-local fovCircle = Drawing.new("Circle")
-fovCircle.Thickness = 1.5
-fovCircle.NumSides = 80
-fovCircle.Filled = false
-fovCircle.Color = getAccent()
-fovCircle.Transparency = 0.7
+local fovCircle = nil
+pcall(function()
+    if Drawing and Drawing.new then
+        fovCircle = Drawing.new("Circle")
+        fovCircle.Thickness = 1.5
+        fovCircle.NumSides = 80
+        fovCircle.Filled = false
+        fovCircle.Color = getAccent()
+        fovCircle.Transparency = 0.7
+    end
+end)
 
 -- INPUT HANDLING
 UserInputService.InputBegan:Connect(function(input, gpe)
@@ -1527,9 +1536,9 @@ RunService.RenderStepped:Connect(function()
         wmStats.Text = string.format("fps: %d | ping: %dms\nuser: %s", fps, ping, LocalPlayer.Name)
     end
     
-    fovCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
-    fovCircle.Radius = CFG.AimFOV
-    fovCircle.Visible = CFG.ShowFOV and (CFG.AimbotEnabled or CFG.SilentAim)
+    if fovCircle then fovCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36) end
+    if fovCircle then fovCircle.Radius = CFG.AimFOV end
+    if fovCircle then fovCircle.Visible = CFG.ShowFOV and (CFG.AimbotEnabled or CFG.SilentAim) end
     
     crosshairFrame.Visible = CFG.Crosshair
     if CFG.Crosshair then
@@ -1618,7 +1627,7 @@ local function getSilentTarget()
 end
 
 pcall(function()
-    local mt = getrawmetatable(game)
+    local mt = getrawmetatable and getrawmetatable(game)
     local old = mt.__namecall
     setreadonly(mt, false)
     mt.__namecall = newcclosure(function(self, ...)
@@ -1668,7 +1677,7 @@ end)
 
 -- Mouse.Hit / Mouse.Target override (works on many executors)
 pcall(function()
-    local mt = getrawmetatable(Mouse)
+    local mt = getrawmetatable and getrawmetatable(Mouse)
     if not mt then return end
     local oldIndex = mt.__index
     setreadonly(mt, false)
@@ -1900,19 +1909,24 @@ end)
 
 -- ESP SYSTEM
 local function createESP(plr)
+    if not (Drawing and Drawing.new) then return end
+    local function dnew(t)
+        local ok, obj = pcall(Drawing.new, t)
+        return ok and obj or nil
+    end
     espDrawings[plr] = {
-        box = Drawing.new("Square"),
-        -- corner lines for corner box style
-        c1 = Drawing.new("Line"), c2 = Drawing.new("Line"), c3 = Drawing.new("Line"), c4 = Drawing.new("Line"),
-        c5 = Drawing.new("Line"), c6 = Drawing.new("Line"), c7 = Drawing.new("Line"), c8 = Drawing.new("Line"),
-        name = Drawing.new("Text"),
-        health = Drawing.new("Line"),
-        healthBg = Drawing.new("Line"),
-        tracer = Drawing.new("Line"),
-        dist = Drawing.new("Text"),
+        box = dnew("Square"),
+        c1 = dnew("Line"), c2 = dnew("Line"), c3 = dnew("Line"), c4 = dnew("Line"),
+        c5 = dnew("Line"), c6 = dnew("Line"), c7 = dnew("Line"), c8 = dnew("Line"),
+        name = dnew("Text"),
+        health = dnew("Line"),
+        healthBg = dnew("Line"),
+        tracer = dnew("Line"),
+        dist = dnew("Text"),
         skeleton = {},
         cham = nil
     }
+    if not espDrawings[plr].box then espDrawings[plr] = nil return end
     local d = espDrawings[plr]
     d.box.Thickness = CFG.ESPThickness or 1.5
     d.box.Filled = false
@@ -1953,11 +1967,13 @@ local function createESP(plr)
         {"RightLowerLeg", "RightFoot"}
     }
     for _, pair in ipairs(boneNames) do
-        local line = Drawing.new("Line")
-        line.Thickness = 1.5
-        line.Color = getESPColor()
-        line.Visible = false
-        table.insert(d.skeleton, {line = line, from = pair[1], to = pair[2]})
+        local ok, line = pcall(Drawing.new, "Line")
+        if ok and line then
+            line.Thickness = 1.5
+            line.Color = getESPColor()
+            line.Visible = false
+            table.insert(d.skeleton, {line = line, from = pair[1], to = pair[2]})
+        end
     end
 end
 
